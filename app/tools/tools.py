@@ -1,5 +1,6 @@
 from typing import Final
 from langchain_core.tools import tool
+from app.ingestion.retrieval import vector_search, hybrid_search
 
 COLLECTION_NAME: Final = ""
 
@@ -25,9 +26,10 @@ def vector_search_tool(
 
     print("Calling ==> vector_search_tool")
     print(f"Query : {query}")
+    result = vector_search(query=query)
     print("*****************")
 
-    return [{"content": "Final Vector search results."}]
+    return result
 
 
 @tool
@@ -71,9 +73,10 @@ def hybrid_search_tool(
 
     print("Calling ==> hybrid_search_tool")
     print(f"Query : {query}")
+    result = hybrid_search(query=query)
     print("*****************")
 
-    return [{"content": "Final Hybrid search results."}]
+    return result
 
 
 search_tools = [vector_search_tool, fts_search_tool, hybrid_search_tool]
