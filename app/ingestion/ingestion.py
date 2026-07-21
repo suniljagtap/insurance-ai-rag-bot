@@ -56,13 +56,9 @@ def ingest_pdf(filepath: str):
     # load the embedding model & generate the embeddings
     # save it in vector db
     chunks = document_splitter(filepath)
-    print("ingestion started")
+    # print("ingestion started")
     vector_store = get_vector_store(
         collection_name="insurance_claim", pre_delete_collection=True
     )
     vector_store.add_documents(chunks)
     print("Ingestion Completed")
-
-
-# ingest_pdf(file_path)
-# uv run python -m ingestion.ingestion

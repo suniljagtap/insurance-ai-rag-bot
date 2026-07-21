@@ -10,6 +10,8 @@ from psycopg.rows import dict_row
 from .ingestion import document_splitter, file_path
 
 _raw_conn = os.getenv("PG_CONNECTION_STRING_FTS")
+chunks = document_splitter(file_path)
+bm25_retriever = BM25Retriever.from_documents(chunks)
 
 
 def fts_search(query: str, k=5, collection_name: str = "insurance_claim"):
@@ -30,23 +32,26 @@ def fts_search(query: str, k=5, collection_name: str = "insurance_claim"):
        ORDER BY fts_rank DESC
        LIMIT %(k)s;
    """
+    try:
+        with psycopg.connect(_raw_conn, row_factory=dict_row) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    sql, {"query": query, "collection": collection_name, "k": k}
+                )
+                rows = cur.fetchall()
 
-    with psycopg.connect(_raw_conn, row_factory=dict_row) as conn:
-        with conn.cursor() as cur:
-            cur.execute(sql, {"query": query, "collection": collection_name, "k": k})
-            rows = cur.fetchall()
-
-    output = [
-        {
-            "content": row["content"],
-            "metadata": row["metadata"],
-            "fts_rank": round(float(row["fts_rank"]), 4),
-        }
-        for row in rows
-    ]
-
-    # print(output)
-    return output
+        output = [
+            {
+                "content": row["content"],
+                "metadata": row["metadata"],
+                "fts_rank": round(float(row["fts_rank"]), 4),
+            }
+            for row in rows
+        ]
+        # print(output)
+        return output
+    except Exception as e:
+        print(f"Error occured while doing FTS search due to {e}")
 
 
 # Perform cosine similarity vector search (Top-K = 5)
@@ -71,10 +76,8 @@ def hybrid_search(
     k=5,
     collection_name: str = "insurance_claim",
 ):
-    chunks = document_splitter(file_path)
-    bm25_retriever = BM25Retriever.from_documents(chunks)
     # Retrieve top 5 keyword matches
-    bm25_retriever.k = 5
+    bm25_retriever.k = k
     # Vector Search
     vector_store = get_vector_store(collection_name, pre_delete_collection=False)
     vector_results = vector_store.similarity_search_with_score(query, k=k)
@@ -90,7 +93,6 @@ def hybrid_search(
         scores[key]["vector_score"] = vector_score
         scores[key]["doc"] = doc
     # Normalize BM25 Scores
-    max_bm25 = max([1 for _ in bm25_results], default=1)
     for rank, doc in enumerate(bm25_results):
         bm25_score = 1 / (rank + 1)
         key = doc.page_content
