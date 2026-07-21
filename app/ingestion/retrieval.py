@@ -4,6 +4,7 @@ from app.core.db import get_vector_store
 from langchain_community.retrievers import BM25Retriever
 from langchain_openai import ChatOpenAI
 from collections import defaultdict
+from psycopg.rows import dict_row
 
 # from collections import defaultdict
 from .ingestion import document_splitter, file_path
@@ -11,7 +12,43 @@ from .ingestion import document_splitter, file_path
 _raw_conn = os.getenv("PG_CONNECTION_STRING_FTS")
 
 
-# hybrid searching (50/50) searching
+def fts_search(query: str, k=5, collection_name: str = "insurance_claim"):
+    """Keyword search against the stored chunks using Postgres' tsvector/tsquery/ts_rank"""
+    sql = """
+       SELECT
+           e.document                                               AS content,
+           e.cmetadata                                              AS metadata,
+           ts_rank(
+               to_tsvector('english', e.document),
+               plainto_tsquery('english', %(query)s)
+           )                                                        AS fts_rank
+       FROM  langchain_pg_embedding  e
+       JOIN  langchain_pg_collection c ON c.uuid = e.collection_id
+       WHERE c.name = %(collection)s
+         AND to_tsvector('english', e.document)
+             @@ plainto_tsquery('english', %(query)s)
+       ORDER BY fts_rank DESC
+       LIMIT %(k)s;
+   """
+
+    with psycopg.connect(_raw_conn, row_factory=dict_row) as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql, {"query": query, "collection": collection_name, "k": k})
+            rows = cur.fetchall()
+
+    output = [
+        {
+            "content": row["content"],
+            "metadata": row["metadata"],
+            "fts_rank": round(float(row["fts_rank"]), 4),
+        }
+        for row in rows
+    ]
+
+    # print(output)
+    return output
+
+
 # Perform cosine similarity vector search (Top-K = 5)
 def vector_search(query, k=5, collection_name: str = "insurance_claim"):
     print("Trying vector search")
