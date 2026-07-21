@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from datetime import date, datetime
-from core.db import get_vector_store
+from app.core.db import get_vector_store
 import os
 
 load_dotenv()
@@ -64,5 +64,5 @@ def ingest_pdf(filepath: str):
     print("Ingestion Completed")
 
 
-ingest_pdf(file_path)
+# ingest_pdf(file_path)
 # uv run python -m ingestion.ingestion
