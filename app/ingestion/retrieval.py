@@ -1,6 +1,6 @@
 import psycopg
 import os
-from core.db import get_vector_store
+from app.core.db import get_vector_store
 from langchain_community.retrievers import BM25Retriever
 from langchain_openai import ChatOpenAI
 from collections import defaultdict
