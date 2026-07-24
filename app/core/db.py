@@ -3,12 +3,17 @@ from dotenv import load_dotenv
 from langchain_openai import OpenAIEmbeddings
 from langchain_postgres import PGVector
 from psycopg import OperationalError
+from psycopg.errors import ConnectionTimeout
 
 # uv add langchain-openai
 
 load_dotenv()
 
-PG_CONNECTION = os.getenv("PG_CONNECTION_STRING")
+# PG_CONNECTION = os.getenv("PG_CONNECTION_STRING")
+PG_CONNECTION = (
+    f"{os.getenv("PG_CONNECTION_STRING")}"
+    f"?connect_timeout={os.getenv('PG_CONNECT_TIMEOUT', '3')}"
+)
 
 
 def get_embeddings():
@@ -28,9 +33,12 @@ def get_vector_store(collection_name: str, pre_delete_collection: bool = False):
             use_jsonb=True,  # for better querying during retrieval
             pre_delete_collection=pre_delete_collection,
         )
-    except OperationalError as op:
-        print(f"Unable to connect to PGVector due to {op}")
-        raise ConnectionError("Internal error") from op
+    except ConnectionTimeout as exc:
+        print(f"Connection could not be established due to {exc}")
+        # raise TimeoutError(
+        #     "Timed out connecting to the vector database after 5 seconds."
+        # ) from exc
+
     except Exception as e:
         print(f"Error facing when intializing PGVector due to {e}")
         raise RuntimeError("Internal error") from e
