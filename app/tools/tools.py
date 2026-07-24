@@ -1,6 +1,6 @@
 from typing import Final
 from langchain_core.tools import tool
-from app.ingestion.retrieval import vector_search, hybrid_search
+from app.retrieval.retrieval import vector_search, hybrid_search, fts_search
 
 COLLECTION_NAME: Final = ""
 
@@ -50,9 +50,11 @@ def fts_search_tool(
 
     print("Calling ==> fts_search_tool")
     print(f"Query : {query}")
+    result = fts_search(query=query)
     print("*****************")
+    return result
 
-    return [{"content": "FTS Vector search results."}]
+    # return [{"content": "FTS Vector search results."}]
 
 
 @tool
