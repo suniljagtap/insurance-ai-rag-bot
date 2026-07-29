@@ -1,4 +1,5 @@
 import os
+from pydantic import BaseModel, Field
 from app.prompts.prompts import INSURANCE_AGENT_SYS_PROMPT
 from app.tools.tools import search_tools
 
@@ -12,6 +13,24 @@ from langchain.agents import create_agent
 load_dotenv()
 
 
+class Citation(BaseModel):
+    name: str = Field(descript="The document name")
+    page_number: int = Field(
+        description="Page number of the page where the answer was found"
+    )
+    question_number: str = Field(description="The question number of the query")
+
+
+class AIResponse(BaseModel):
+    """Structured response for AI"""
+
+    query: str = Field(description="User provided query")
+    response: str = Field(description="The answer found in the document")
+    citation: list[Citation] = Field(
+        description="The document name, page number and question number"
+    )
+
+
 # Initialize the model and bind to the agent
 # Setting temperature to 0 guarantees reliable, deterministic tool calling choices
 model = ChatOpenAI(model="gpt-5.5", temperature=0)
@@ -23,6 +42,7 @@ def run_insurance_agent(query: str):
     insurance_agent = create_agent(
         model=model,
         tools=search_tools,
+        # response_format=AIResponse,
         system_prompt=INSURANCE_AGENT_SYS_PROMPT,
     )
 
