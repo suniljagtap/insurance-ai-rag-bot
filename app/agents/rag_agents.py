@@ -1,5 +1,5 @@
 import os
-from pydantic import BaseModel, Field
+from typing import Any
 from app.prompts.prompts import INSURANCE_AGENT_SYS_PROMPT
 from app.tools.tools import search_tools
 
@@ -13,49 +13,41 @@ from langchain.agents import create_agent
 load_dotenv()
 
 
-class Citation(BaseModel):
-    name: str = Field(descript="The document name")
-    page_number: int = Field(
-        description="Page number of the page where the answer was found"
-    )
-    question_number: str = Field(description="The question number of the query")
-
-
-class AIResponse(BaseModel):
-    """Structured response for AI"""
-
-    query: str = Field(description="User provided query")
-    response: str = Field(description="The answer found in the document")
-    citation: list[Citation] = Field(
-        description="The document name, page number and question number"
-    )
-
-
 # Initialize the model and bind to the agent
 # Setting temperature to 0 guarantees reliable, deterministic tool calling choices
 model = ChatOpenAI(model="gpt-5.5", temperature=0)
 
 
 # Insurance Agent - Analyze query and call appropriate search tool
-def run_insurance_agent(query: str):
+def run_insurance_agent(query: str, json_data: dict[str, Any] | None = None):
     # Build configuration for the tool calling agent
     insurance_agent = create_agent(
         model=model,
         tools=search_tools,
-        # response_format=AIResponse,
         system_prompt=INSURANCE_AGENT_SYS_PROMPT,
     )
 
     # Execute query using invoke method
     try:
+        if json_data is None:
+            json_data = {}
+            msg_content = f"""
+                        User query: {query}
+                        """
+        else:
+            msg_content = f"""
+                        Claim details: {json_data}
+                        User query: {query}
+                        """
+
         query_output = insurance_agent.invoke(
-            {"messages": [{"role": "user", "content": query}]}
+            {"messages": [{"role": "user", "content": msg_content}]}
         )
+
+        return query_output["messages"][-1].content
     except Exception as e:
         print(f"Exception details::: {e}")
-
-    return query_output["messages"][-1].content
-    # return query_output
+        return f"Exception details::: {e}"
 
 
 if __name__ == "__main__":
