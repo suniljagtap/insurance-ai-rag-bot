@@ -69,7 +69,6 @@ def fts_search(query: str, k=5, collection_name: str = "insurance_claim"):
 def vector_search(query, k=5, collection_name: str = "insurance_claim"):
     try:
         print("Trying vector search")
-        print(query, collection_name)
         vector_store = get_vector_store(collection_name, pre_delete_collection=False)
         results = vector_store.similarity_search_with_score(query=query, k=k)
 
@@ -139,7 +138,7 @@ def hybrid_search(
         # this line sorts the results of the RRF calculation so that,
         # the higher scoring doc/chunk appear at the very top of the final list
         ranked = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)
-        print(ranked)
+        # print(ranked)
         return [chunk_map[key] for key, _ in ranked[:k]]
 
     except ConnectionTimeout as exc:

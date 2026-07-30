@@ -1,6 +1,8 @@
 import streamlit as st
 import requests
 import json
+import streamlit.components.v1 as components
+from streamlit_option_menu import option_menu
 
 st.markdown(
     """
@@ -9,8 +11,14 @@ st.markdown(
         visibility: hidden;
         display: none;
     }
-    header {
-        display: none !important;
+    .fixed-header {
+        position: sticky;
+        top: 0;
+        background-color: white;
+        z-index: 1000;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e6e6e6;
     }
     </style>
     """,
@@ -18,21 +26,45 @@ st.markdown(
 )
 
 # Set page configuration
-st.set_page_config(page_title="Insurance Chatbot", page_icon="🚀", layout="centered")
+st.set_page_config(
+    page_title="Insurance Chatbot",
+    page_icon="🚀",
+    layout="centered",
+    initial_sidebar_state=375,
+)
 st.title("🤖 AI-Powered Insurance Chatbot")
 
+QUERY_API_URL = "http://localhost:8000/api/v1/user/chat"
+CLAIM_QUERY_API_URL = "http://localhost:8000/api/v1/user/chat"
+UPLOAD_API_URL = "http://localhost:8000/api/v1/admin/upload"
+
+
 # Navigation Sidebar
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to:", ["Chatbot View", "File Upload View"])
+with st.sidebar:
+    page = option_menu(
+        menu_title="Insurance Assistant",
+        options=["Chatbot", "File Upload"],
+        icons=["chat-dots", "cloud-upload"],
+        default_index=0,
+    )
+
+    st.divider()
+    if st.button("🗑️ Clear Chat", use_container_width=True, type="secondary"):
+        st.session_state.messages = []
+        st.session_state["claim_details_input"] = ""
+        st.rerun()
+
+    claim_json = st.text_area(
+        "Enter claim details (optional)", key="claim_details_input"
+    )
 
 
 # Page: Chatbot View Interface
-if page == "Chatbot View":
-
-    CHAT_API_URL = "http://localhost:8000/api/v1/user/query"
+if page == "Chatbot":
 
     # Initialize chat history in session state
     if "messages" not in st.session_state:
+        # st.session_state.session_id
         st.session_state.messages = []
 
     # Display previous messages
@@ -40,49 +72,109 @@ if page == "Chatbot View":
         with st.chat_message(message["role"]):
             st.write(message["content"])
 
-    # Capture user prompt
-    if prompt := st.chat_input("What is on your mind?"):
-        # Display and save user message
+    query = st.chat_input("Enter your query", key="query_only")
+    if query:
         with st.chat_message("user"):
-            st.write(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
+            st.write(query)
 
-        # Call FastAPI backend
+        st.session_state.messages.append({"role": "user", "content": query})
+
+    if query:
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
                 try:
-                    response = requests.post(CHAT_API_URL, json={"query": prompt})
+                    if claim_json and claim_json.strip():
+                        try:
+                            claim_data = json.loads(claim_json)
+                        except json.JSONDecodeError:
+                            st.error("Invalid JSON provided.")
+                            st.stop()
+
+                        payload = {
+                            # "session_id": st.session_state.session_id,
+                            "query": query,
+                            "claim_details": claim_data,
+                            "chat_history": st.session_state.messages,
+                        }
+                        # Call FastAPI backend
+                        # st.write("Claim details being sent:")
+
+                    else:
+                        payload = {
+                            # "session_id": st.session_state.session_id,
+                            "query": query,
+                            "chat_history": st.session_state.messages,
+                        }
+                        # st.write("Just query being sent:")
+
+                    # Call FastAPI backend
+                    response = requests.post(QUERY_API_URL, json=payload, timeout=60)
+
                     if response.status_code == 200:
                         bot_response = response.json().get("response")
-                        # st.write(bot_response)
-                        data = json.loads(bot_response)
+                        try:
+                            data = (
+                                json.loads(bot_response)
+                                if isinstance(bot_response, str)
+                                else bot_response
+                            )
+                        except json.JSONDecodeError:
+                            st.error("Invalid response received from API.")
+                            st.stop()
 
-                        if data["answer"] == "Not applicable.":
+                        if data.get("answer") == "Not applicable.":
                             st.warning("⚠️ No applicable answer found for this query.")
                         else:
                             st.success(data["answer"])
 
-                        if data["citations"]:
+                        if data.get("citations"):
+                            # inline_citation = ", ".join(my_list)
+                            # inline_citation = ""
+                            # for citation in data["citations"]:
+                            #     inline_citation = ", ".join(
+                            #         f"Page {citation['page']} - {citation['question']}"
+                            #     )
+                            #     # st.caption(
+                            #     #     f"Page {citation['page']} - {citation['question']}"
+                            #     # )
+                            # if inline_citation:
+                            #     st.caption(f"Source: {inline_citation}")
+
+                            st.caption("Source:")
                             for citation in data["citations"]:
                                 st.caption(
-                                    f"Source Location: Page {citation['page']} - {citation['question']}"
+                                    f"Page {citation['page']} - {citation['question']}"
                                 )
-                        else:
-                            st.text("No citations")
 
                         st.session_state.messages.append(
-                            {"role": "assistant", "content": data}
+                            {"role": "assistant", "content": data["answer"]}
                         )
                     else:
                         st.error(
-                            "Failed to connect to FastAPI backend. Check if server is up and running."
+                            "Service is temporarily unavailable, please try again later."
                         )
+                except requests.exceptions.Timeout:
+                    st.error("Request timed out, please try again later.")
+                    st.stop()
+                except requests.exceptions.ConnectionError:
+                    st.error(
+                        "Service is temporarily unavailable, please try again later."
+                    )
+                    st.stop()
+                except requests.exceptions.RequestException as e:
+                    st.error(
+                        "Service is temporarily unavailable, please try again later."
+                    )
+                    st.stop()
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    st.error(
+                        "Service is temporarily unavailable, please try again later."
+                    )
+                    st.stop()
 
 
 # Page: File Upload View Interface
-elif page == "File Upload View":
+elif page == "File Upload":
     st.header("File Uploader")
 
     # Restrict the file uploader to PDF files
@@ -92,7 +184,6 @@ elif page == "File Upload View":
         st.success(f"File Selected: {uploaded_file.name}")
 
         if st.button("Upload File"):
-            UPLOAD_API_URL = "http://localhost:8000/api/v1/admin/upload"
 
             # Prepare the file payload for form-data transmission
             files = {
@@ -105,7 +196,7 @@ elif page == "File Upload View":
 
             with st.spinner("Uploading..."):
                 try:
-                    # Send the POST request
+                    # Call FastAPI backend
                     response = requests.post(UPLOAD_API_URL, files=files)
 
                     # Handle API Exceptions and Successes
