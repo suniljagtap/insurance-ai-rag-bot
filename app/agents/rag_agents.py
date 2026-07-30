@@ -3,7 +3,6 @@ from typing import Any
 from app.prompts.prompts import INSURANCE_AGENT_SYS_PROMPT
 from app.tools.tools import search_tools
 
-# from app.tools import vector_search_tool, fts_search_tool, hybrid_search_tool
 
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
@@ -19,7 +18,11 @@ model = ChatOpenAI(model="gpt-5.5", temperature=0)
 
 
 # Insurance Agent - Analyze query and call appropriate search tool
-def run_insurance_agent(query: str, json_data: dict[str, Any] | None = None):
+def run_insurance_agent(
+    query: str,
+    json_data: dict[str, Any] | None = None,
+    chat_history: list | None = None,
+):
     # Build configuration for the tool calling agent
     insurance_agent = create_agent(
         model=model,
@@ -39,10 +42,10 @@ def run_insurance_agent(query: str, json_data: dict[str, Any] | None = None):
                         Claim details: {json_data}
                         User query: {query}
                         """
+        messages = chat_history.copy() if chat_history else []
+        messages.append({"role": "user", "content": msg_content})
 
-        query_output = insurance_agent.invoke(
-            {"messages": [{"role": "user", "content": msg_content}]}
-        )
+        query_output = insurance_agent.invoke({"messages": messages})
 
         return query_output["messages"][-1].content
     except Exception as e:
