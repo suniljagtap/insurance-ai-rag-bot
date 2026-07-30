@@ -16,8 +16,8 @@ _raw_conn = (
     f"{os.getenv("PG_CONNECTION_STRING_FTS")}"
     f"?connect_timeout={os.getenv('PG_CONNECT_TIMEOUT', '3')}"
 )
-chunks = document_splitter(file_path)
-bm25_retriever = BM25Retriever.from_documents(chunks)
+# chunks = document_splitter(file_path)
+# bm25_retriever = BM25Retriever.from_documents(chunks)
 
 
 def fts_search(query: str, k=5, collection_name: str = "insurance_claim"):
@@ -96,6 +96,8 @@ def hybrid_search(
     collection_name: str = "insurance_claim",
 ):
     # Retrieve top 5 keyword matches
+    chunks = document_splitter(file_path)
+    bm25_retriever = BM25Retriever.from_documents(chunks)
     bm25_retriever.k = k
     try:
         # Vector Search
