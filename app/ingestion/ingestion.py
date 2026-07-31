@@ -34,7 +34,7 @@ def document_splitter(filepath: str):
             {
                 "source": filepath,
                 "document_extension": "pdf",
-                "page": doc.metadata.get("page"),
+                "page": doc.metadata.get("page_label"),
                 "source_date": doc.metadata.get("creationdate", datetime.today),
                 "last_updated": os.path.getmtime(filepath),
                 "chunk_index": i,

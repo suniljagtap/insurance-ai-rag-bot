@@ -148,37 +148,3 @@ def hybrid_search(
         # ) from exc
     except Exception as e:
         print(f"Error occured while doing hybrid search due to {e}")
-
-    # scores = defaultdict(lambda: {"vector_score": 0, "bm25_score": 0, "doc": None})
-    # # Normalize Vector Scores
-    # for doc, distance in vector_results:
-    #     # pgvector returns distance
-    #     # convert to similarity
-    #     vector_score = 1 - distance
-    #     key = doc.page_content
-    #     scores[key]["vector_score"] = vector_score
-    #     scores[key]["doc"] = doc
-    # # Normalize BM25 Scores
-    # for rank, doc in enumerate(bm25_results):
-    #     bm25_score = 1 / (rank + 1)
-    #     key = doc.page_content
-    #     scores[key]["bm25_score"] = bm25_score
-    #     scores[key]["doc"] = doc
-    # # Hybrid scoring
-    # final_results = []
-    # for item in scores.values():
-    #     hybrid_score = (
-    #         vector_weight * item["vector_score"] + bm25_weight * item["bm25_score"]
-    #     )
-
-    #     final_results.append(
-    #         {
-    #             "document": item["doc"],
-    #             "score": hybrid_score,
-    #             "vector_score": item["vector_score"],
-    #             "bm25_score": item["bm25_score"],
-    #         }
-    #     )
-    # # Sort highest score
-    # final_results.sort(key=lambda x: x["score"], reverse=True)
-    # return final_results[:k]
